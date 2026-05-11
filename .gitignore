@@ -1,0 +1,144 @@
+# Project specific
+/crops
+/Dataset
+
+# =========================
+# OS GENERATED FILES
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# VS CODE
+# =========================
+/.vscode
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+# =========================
+# GITHUB COPILOT / AI CACHE
+# =========================
+*.code-workspace
+
+# =========================
+# PYTHON
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.env/
+.venv/
+
+# Python packaging
+build/
+dist/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# =========================
+# LOG FILES
+# =========================
+*.log
+
+# =========================
+# TEMP FILES
+# =========================
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# =========================
+# ENVIRONMENT VARIABLES
+# =========================
+.env
+.env.local
+
+# =========================
+# NODE / JAVASCRIPT
+# =========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# =========================
+# C / C++ / BUILD FILES
+# =========================
+*.o
+*.obj
+*.exe
+*.out
+*.a
+*.so
+*.dll
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake-build-*/
+
+# =========================
+# FPGA / EDA TOOLS
+# =========================
+
+# Vivado
+.vivado/
+.cache/
+.hw/
+.ip_user_files/
+.sim/
+.xil/
+
+# Quartus
+db/
+incremental_db/
+output_files/
+
+# Synopsys / Cadence temp
+*.jou
+*.log
+*.str
+*.rpt
+
+# =========================
+# LATEX
+# =========================
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.lot
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+
+# =========================
+# GENERATED DATA
+# =========================
+coverage/
+htmlcov/
+
+# =========================
+# ARCHIVES
+# =========================
+*.zip
+*.tar
+*.gz
+*.7z
+

@@ -1,0 +1,8 @@
+{
+    "partition": "gallery",
+    "index_type": "IVF",
+    "metric": "L2",
+    "n_clusters": 100,
+    "embedding_dim": 512,
+    "num_samples": 12612
+}

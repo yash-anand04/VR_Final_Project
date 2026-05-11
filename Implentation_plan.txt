@@ -1,0 +1,229 @@
+VISUAL PRODUCT SEARCH ENGINE – DETAILED IMPLEMENTATION PLAN
+
+------------------------------------------------------------
+1. PROJECT OVERVIEW
+------------------------------------------------------------
+Build a query-by-image product search system using:
+- YOLO (object detection)
+- BLIP-2 (captioning)
+- CLIP (embedding)
+- FAISS/HNSW (vector search)
+
+Two pipelines:
+1. Offline indexing (prepare database)
+2. Online retrieval (user query)
+
+------------------------------------------------------------
+2. PROJECT STRUCTURE
+------------------------------------------------------------
+project/
+│── data/
+│   ├── train/
+│   ├── query/
+│   ├── gallery/
+│
+│── models/
+│   ├── yolo/
+│   ├── clip/
+│   ├── blip2/
+│
+│── embeddings/
+│── index/
+│
+│── scripts/
+│   ├── detect.py
+│   ├── caption.py
+│   ├── embed.py
+│   ├── index.py
+│   ├── search.py
+│   ├── evaluate.py
+│
+│── app/
+│   ├── streamlit_app.py
+│
+│── utils/
+│   ├── preprocessing.py
+│   ├── metrics.py
+│
+│── requirements.txt
+
+------------------------------------------------------------
+3. PHASE 1 – SETUP
+------------------------------------------------------------
+Install dependencies:
+pip install torch torchvision transformers
+pip install ultralytics faiss-cpu streamlit numpy pandas
+
+Download:
+- DeepFashion dataset
+- Pretrained models (YOLOv8, CLIP, BLIP-2)
+
+------------------------------------------------------------
+4. PHASE 2 – DATA PREPARATION
+------------------------------------------------------------
+- Load dataset
+- Split into:
+  - Train
+  - Query
+  - Gallery
+
+- Ensure:
+  Same item_id = positive match
+
+------------------------------------------------------------
+5. PHASE 3 – OFFLINE PIPELINE
+------------------------------------------------------------
+
+Step 1: Object Detection (YOLO)
+- Input: raw image
+- Output: cropped product image
+
+Tasks:
+- Load YOLO model
+- Detect bounding box
+- Crop and save
+
+------------------------------------------------------------
+
+Step 2: Caption Generation (BLIP-2)
+- Input: cropped image
+- Output: caption
+
+Tasks:
+- Load BLIP-2
+- Generate captions
+- Store captions
+
+------------------------------------------------------------
+
+Step 3: Embedding Generation (CLIP)
+
+Tasks:
+- Extract image embeddings
+- Extract text embeddings
+- Normalize both
+
+Fusion:
+embedding = alpha * image_emb + (1 - alpha) * text_emb
+embedding = normalize(embedding)
+
+------------------------------------------------------------
+
+Step 4: Indexing (FAISS / HNSW)
+
+Tasks:
+- Initialize FAISS index
+- Add embeddings
+- Store metadata (item_id, path, caption)
+
+Save:
+- index file
+- metadata file
+
+------------------------------------------------------------
+6. PHASE 4 – ONLINE PIPELINE
+------------------------------------------------------------
+
+Step 1: Input Query Image
+Step 2: YOLO crop
+Step 3: CLIP embedding
+Step 4: Retrieve top-K using cosine similarity
+Step 5: Re-rank using BLIP-2 ITM
+
+Output:
+- Top-K similar images
+- Similarity scores
+
+------------------------------------------------------------
+7. PHASE 5 – CLIP FINE-TUNING
+------------------------------------------------------------
+
+Goal:
+- Same item_id → closer embeddings
+- Different item_id → farther apart
+
+Steps:
+- Create pairs (positive + negative)
+- Use contrastive loss
+- Train:
+  - Fine-tune last layers of CLIP vision encoder
+  - Freeze text encoder
+
+------------------------------------------------------------
+8. PHASE 6 – EVALUATION
+------------------------------------------------------------
+
+Metrics:
+1. Recall@K
+2. NDCG@K
+3. mAP@K
+
+Implementation:
+- Loop through query images
+- Retrieve top-K results
+- Compare item_id
+
+------------------------------------------------------------
+9. PHASE 7 – STREAMLIT APP
+------------------------------------------------------------
+
+Features:
+- Upload image
+- Show YOLO crop
+- Confirm / re-crop
+- Display top-K results
+- Show captions and scores
+
+Run:
+streamlit run streamlit_app.py
+
+------------------------------------------------------------
+10. PHASE 8 – EXPERIMENTS
+------------------------------------------------------------
+
+Run 3 setups:
+A: CLIP only (alpha=1)
+B: CLIP + BLIP-2 (no fine-tune)
+C: Fine-tuned CLIP + BLIP-2
+
+Compare:
+- Recall@K
+- NDCG@K
+- mAP@K
+
+------------------------------------------------------------
+11. KEY PARAMETERS
+------------------------------------------------------------
+
+alpha:
+- Range: 0 to 1
+- Tune experimentally
+
+K:
+- Values: 5, 10, 15
+
+------------------------------------------------------------
+12. OUTPUTS REQUIRED
+------------------------------------------------------------
+
+1. Report
+2. Streamlit demo
+3. Evaluation script
+4. GitHub repo
+
+------------------------------------------------------------
+13. CODING TASK BREAKDOWN (FOR COPILOT)
+------------------------------------------------------------
+
+1. Implement YOLO detection function
+2. Implement BLIP-2 caption generator
+3. Implement CLIP embedding extractor
+4. Implement embedding fusion
+5. Implement FAISS index creation
+6. Implement search function
+7. Implement re-ranking module
+8. Implement evaluation metrics
+9. Build Streamlit UI
+
+------------------------------------------------------------
+END OF PLAN
