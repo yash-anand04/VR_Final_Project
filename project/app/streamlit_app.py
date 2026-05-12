@@ -25,6 +25,10 @@ k = st.slider("Top-K", min_value=5, max_value=20, value=10, step=1)
 alpha = st.slider("Fusion alpha", min_value=0.0, max_value=1.0, value=1.0, step=0.05)
 device = st.selectbox("Device", ["cuda", "cpu"], index=0 if MODEL_CONFIG["clip"]["device"] == "cuda" else 1)
 use_crop = st.checkbox("Use YOLO crop", value=True)
+crop_conf_threshold = MODEL_CONFIG["yolo"].get(
+    "crop_conf_threshold",
+    MODEL_CONFIG["yolo"]["conf_threshold"],
+)
 
 if uploaded is not None:
     image = Image.open(uploaded).convert("RGB")
@@ -40,9 +44,22 @@ if uploaded is not None:
         try:
             if use_crop:
                 detector = YOLODetector(device=device)
-                crop_image, _ = detector.detect_and_crop(temp_path, return_bbox=True, return_pil=True)
+                crop_image, _, detected, confidence = detector.detect_and_crop(
+                    temp_path,
+                    return_bbox=True,
+                    return_pil=True,
+                    return_detection=True,
+                    return_confidence=True,
+                )
                 with left:
-                    st.image(crop_image, caption="YOLO crop (used for search)", use_container_width=True)
+                    if detected and confidence >= crop_conf_threshold:
+                        st.image(crop_image, caption="YOLO crop (used for search)", use_container_width=True)
+                    elif not detected:
+                        st.warning("No detection found; using the original image for search.")
+                    else:
+                        st.warning(
+                            f"Low detection confidence ({confidence:.2f}); using the original image for search."
+                        )
 
             engine = ProductSearchEngine(partition=partition, device=device)
             results = engine.search(temp_path, k=k, alpha=alpha, use_crop=use_crop)

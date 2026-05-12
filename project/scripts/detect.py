@@ -47,6 +47,10 @@ def detect_products(
     """
     
     device = device or MODEL_CONFIG["yolo"]["device"]
+    crop_conf_threshold = MODEL_CONFIG["yolo"].get(
+        "crop_conf_threshold",
+        MODEL_CONFIG["yolo"]["conf_threshold"],
+    )
     logger.info(f"Starting product detection for {partition} partition...")
     
     # Initialize detector
@@ -65,6 +69,7 @@ def detect_products(
         "total_images": len(dataset),
         "detected": 0,
         "not_detected": 0,
+        "low_confidence": 0,
         "errors": 0,
         "fallback_full_image": 0,
         "detections": []
@@ -74,41 +79,58 @@ def detect_products(
     for idx, image_path in enumerate(dataset.image_paths):
         try:
             # Detect
-            cropped, bbox, detected = detector.detect_and_crop(
+            cropped, bbox, detected, confidence = detector.detect_and_crop(
                 image_path,
                 return_bbox=True,
                 return_detection=True,
+                return_confidence=True,
             )
+
+            use_crop = bool(detected and confidence >= crop_conf_threshold)
+            fallback_reason = None
+            if not detected:
+                fallback_reason = "no_detection"
+            elif not use_crop:
+                fallback_reason = "low_confidence"
             
             # Save cropped image if requested
+            crop_path = None
             if save_crops:
-                # Convert tensor to image and save
-                import torchvision.transforms as transforms
-                from PIL import Image
-                
-                to_pil = transforms.ToPILImage()
-                crop_image = to_pil(cropped)
-                
-                # Create relative path for crop
-                rel_path = Path(image_path).relative_to(DATASET_CONFIG['image_dir'])
-                crop_path = crop_dir / rel_path.parent / (rel_path.stem + "_crop.jpg")
-                crop_path.parent.mkdir(parents=True, exist_ok=True)
-                
-                crop_image.save(crop_path)
-                
-                detection_results["detections"].append({
-                    "image_path": image_path,
-                    "crop_path": str(crop_path),
-                    "bbox": bbox,
-                    "item_id": dataset.item_ids[idx],
-                    "detected": bool(detected),
-                })
+                if detected:
+                    # Convert tensor to image and save
+                    import torchvision.transforms as transforms
+                    from PIL import Image
+
+                    to_pil = transforms.ToPILImage()
+                    crop_image = to_pil(cropped)
+
+                    # Create relative path for crop
+                    rel_path = Path(image_path).relative_to(DATASET_CONFIG['image_dir'])
+                    crop_path = crop_dir / rel_path.parent / (rel_path.stem + "_crop.jpg")
+                    crop_path.parent.mkdir(parents=True, exist_ok=True)
+
+                    crop_image.save(crop_path)
+
+            detection_results["detections"].append({
+                "image_path": image_path,
+                "crop_path": str(crop_path) if crop_path else None,
+                "bbox": bbox,
+                "item_id": dataset.item_ids[idx],
+                "detected": bool(detected),
+                "confidence": float(confidence),
+                "use_crop": bool(use_crop),
+                "fallback_reason": fallback_reason,
+            })
 
             if detected:
                 detection_results["detected"] += 1
             else:
                 detection_results["not_detected"] += 1
+
+            if not use_crop:
                 detection_results["fallback_full_image"] += 1
+                if detected:
+                    detection_results["low_confidence"] += 1
             
             if (idx + 1) % 100 == 0:
                 logger.info(f"Processed {idx + 1}/{len(dataset)} images")

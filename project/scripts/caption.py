@@ -29,6 +29,15 @@ def generate_simple_caption(item_id: str) -> str:
     return f"A fashion product (item {item_id})"
 
 
+def _caption_key(image_path: str) -> str:
+    """Store captions with paths relative to the dataset image root."""
+    try:
+        rel_path = Path(image_path).relative_to(DATASET_CONFIG["image_dir"])
+        return str(rel_path)
+    except Exception:
+        return str(image_path)
+
+
 def try_load_blip2_captioner(model_name: str, device: str):
     """Try to load BLIP-2 captioner, return None if it fails"""
     try:
@@ -97,6 +106,7 @@ def generate_captions(
             for det in tqdm(detection_results['detections'], desc="Generating captions"):
                 item_id = det.get('item_id', 'unknown')
                 image_path = det.get('image_path', '')
+                caption_key = _caption_key(image_path)
                 caption = None
                 
                 # Try BLIP-2 first if available
@@ -122,7 +132,7 @@ def generate_captions(
                     caption = generate_simple_caption(item_id)
                     captions_fallback += 1
                 
-                captions_data["captions"][image_path] = {
+                captions_data["captions"][caption_key] = {
                     "caption": caption,
                     "item_id": item_id,
                 }

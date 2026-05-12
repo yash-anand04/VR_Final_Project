@@ -51,6 +51,7 @@ MODEL_CONFIG = {
         "model_name": "yolov8m.pt",
         "device": "cuda",  # or "cpu"
         "conf_threshold": 0.5,
+        "crop_conf_threshold": 0.5,
     },
     "clip": {
         "model_name": "openai/clip-vit-base-patch32",

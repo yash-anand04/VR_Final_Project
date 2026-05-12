@@ -62,6 +62,7 @@ class YOLODetector:
         return_bbox: bool = False,
         return_pil: bool = False,
         return_detection: bool = False,
+        return_confidence: bool = False,
     ) -> Tuple:
         """
         Detect product in image and return cropped region
@@ -69,16 +70,21 @@ class YOLODetector:
         Args:
             image_path: Path to input image
             return_bbox: Whether to return bounding box coordinates
+            return_confidence: Whether to return the detection confidence (requires return_detection)
         
         Returns:
             Cropped image tensor or (cropped image, bbox) if return_bbox=True
         """
         from PIL import Image
+
+        if return_confidence and not return_detection:
+            raise ValueError("return_confidence requires return_detection=True")
         
         # Run detection
         results = self.model(image_path, conf=self.conf_threshold, verbose=False)
         
         detected = len(results[0].boxes) > 0
+        best_confidence = 0.0
         if not detected:
             logger.debug(f"No products detected in {image_path}")
             # Return full image if no detection.
@@ -89,23 +95,31 @@ class YOLODetector:
                 bbox = (int(0), int(0), int(w), int(h))
                 if return_pil:
                     if return_detection:
+                        if return_confidence:
+                            return image, bbox, detected, best_confidence
                         return image, bbox, detected
                     return image, bbox
 
                 image_array = np.array(image)
                 image_tensor = torch.tensor(image_array).permute(2, 0, 1).float() / 255.0
                 if return_detection:
+                    if return_confidence:
+                        return image_tensor, bbox, detected, best_confidence
                     return image_tensor, bbox, detected
                 return image_tensor, bbox
 
             if return_pil:
                 if return_detection:
+                    if return_confidence:
+                        return image, detected, best_confidence
                     return image, detected
                 return image
 
             image_array = np.array(image)
             image_tensor = torch.tensor(image_array).permute(2, 0, 1).float() / 255.0
             if return_detection:
+                if return_confidence:
+                    return image_tensor, detected, best_confidence
                 return image_tensor, detected
             return image_tensor
         
@@ -115,6 +129,7 @@ class YOLODetector:
         
         # Select box with highest confidence
         best_idx = np.argmax(confidences)
+        best_confidence = float(confidences[best_idx])
         x1, y1, x2, y2 = boxes[best_idx].astype(int)
         
         # Convert numpy types to Python native types for JSON serialization
@@ -142,9 +157,13 @@ class YOLODetector:
         if return_pil:
             if return_bbox:
                 if return_detection:
+                    if return_confidence:
+                        return cropped_pil, (x1, y1, x2, y2), detected, best_confidence
                     return cropped_pil, (x1, y1, x2, y2), detected
                 return cropped_pil, (x1, y1, x2, y2)
             if return_detection:
+                if return_confidence:
+                    return cropped_pil, detected, best_confidence
                 return cropped_pil, detected
             return cropped_pil
 
@@ -153,10 +172,14 @@ class YOLODetector:
 
         if return_bbox:
             if return_detection:
+                if return_confidence:
+                    return cropped_tensor, (x1, y1, x2, y2), detected, best_confidence
                 return cropped_tensor, (x1, y1, x2, y2), detected
             return cropped_tensor, (x1, y1, x2, y2)
 
         if return_detection:
+            if return_confidence:
+                return cropped_tensor, detected, best_confidence
             return cropped_tensor, detected
         return cropped_tensor
     

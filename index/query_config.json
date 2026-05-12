@@ -1,0 +1,8 @@
+{
+    "partition": "query",
+    "index_type": "IVF",
+    "metric": "IP",
+    "n_clusters": 100,
+    "embedding_dim": 512,
+    "num_samples": 14218
+}

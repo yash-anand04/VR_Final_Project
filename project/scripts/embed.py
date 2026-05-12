@@ -22,6 +22,24 @@ from config import CAPTIONS_DIR, DETECTION_RESULTS_DIR
 logger = setup_logger(__name__)
 
 
+def _normalize_caption_key(path_str: str) -> str:
+    """Normalize caption keys to current dataset image paths."""
+    if not path_str:
+        return ""
+
+    path = Path(path_str)
+    if not path.is_absolute():
+        return str(DATASET_CONFIG["image_dir"] / path)
+
+    parts = path.parts
+    for idx, part in enumerate(parts):
+        if part.lower() == "img":
+            rel = Path(*parts[idx + 1:])
+            return str(DATASET_CONFIG["image_dir"] / rel)
+
+    return str(path)
+
+
 def generate_embeddings(
     partition: str = "gallery",
     model_name: str = "openai/clip-vit-base-patch32",
@@ -45,6 +63,10 @@ def generate_embeddings(
     """
     
     device = device or MODEL_CONFIG["clip"]["device"]
+    crop_conf_threshold = MODEL_CONFIG["yolo"].get(
+        "crop_conf_threshold",
+        MODEL_CONFIG["yolo"]["conf_threshold"],
+    )
     logger.info(f"Generating embeddings for {partition} partition...")
     
     # Initialize models
@@ -57,6 +79,14 @@ def generate_embeddings(
         if captions_file.exists():
             with open(captions_file, 'r') as f:
                 captions_data = json.load(f)
+            captions_index = captions_data.get("captions", {})
+            if captions_index:
+                normalized_captions = {}
+                for key, value in captions_index.items():
+                    normalized_key = _normalize_caption_key(key)
+                    if normalized_key:
+                        normalized_captions.setdefault(normalized_key, value)
+                captions_data["captions"] = normalized_captions
             logger.info(f"Loaded {len(captions_data.get('captions', {}))} captions")
     
     # Load dataset
@@ -74,8 +104,23 @@ def generate_embeddings(
             for det in detection_results.get("detections", []):
                 image_path = det.get("image_path")
                 crop_path = det.get("crop_path")
-                if image_path and crop_path:
-                    crop_map[image_path] = crop_path
+                confidence = det.get("confidence")
+                use_crop_flag = det.get("use_crop")
+                if use_crop_flag is None:
+                    detected_flag = det.get("detected")
+                    if detected_flag is False:
+                        use_crop_flag = False
+                    elif confidence is not None:
+                        use_crop_flag = float(confidence) >= crop_conf_threshold
+                    else:
+                        use_crop_flag = bool(crop_path)
+
+                if image_path:
+                    crop_map[image_path] = {
+                        "crop_path": crop_path,
+                        "confidence": confidence,
+                        "use_crop": bool(use_crop_flag),
+                    }
     
     # Create output directory
     embedding_dir = EMBEDDING_DIR / partition
@@ -98,14 +143,24 @@ def generate_embeddings(
         for i in batch_idx:
             sample = dataset[i]
             caption = None
+            image_key = _normalize_caption_key(sample['image_path'])
             if use_text and captions_data:
-                caption_info = captions_data.get('captions', {}).get(sample['image_path'])
+                caption_info = captions_data.get('captions', {}).get(image_key)
                 if caption_info:
                     caption = caption_info.get('caption')
 
             image_path = sample['image_path']
-            crop_path = crop_map.get(image_path) if use_crops else None
-            image_to_open = crop_path if crop_path and Path(crop_path).exists() else image_path
+            crop_info = crop_map.get(image_path) if use_crops else None
+            crop_path = crop_info.get("crop_path") if crop_info else None
+            crop_confidence = crop_info.get("confidence") if crop_info else None
+            use_crop_for_image = bool(crop_info and crop_info.get("use_crop"))
+
+            if use_crop_for_image and crop_path and Path(crop_path).exists():
+                image_to_open = crop_path
+                used_crop = True
+            else:
+                image_to_open = image_path
+                used_crop = False
 
             from PIL import Image
             image = Image.open(image_to_open).convert("RGB")
@@ -114,7 +169,8 @@ def generate_embeddings(
             batch_metadata.append({
                 'image_path': sample['image_path'],
                 'crop_path': crop_path if crop_path and Path(crop_path).exists() else None,
-                'used_crop': bool(crop_path and Path(crop_path).exists()),
+                'used_crop': used_crop,
+                'crop_confidence': crop_confidence,
                 'item_id': sample['item_id'],
                 'description': sample['description'],
                 'caption': caption,
@@ -127,8 +183,8 @@ def generate_embeddings(
         if use_text and captions_data:
             text_embeddings = []
             for i, metadata in enumerate(batch_metadata):
-                image_path = metadata['image_path']
-                caption_info = captions_data.get('captions', {}).get(image_path)
+                image_key = _normalize_caption_key(metadata['image_path'])
+                caption_info = captions_data.get('captions', {}).get(image_key)
                 
                 if caption_info and caption_info.get('caption'):
                     text_emb = embedder.get_text_embedding(caption_info['caption'])

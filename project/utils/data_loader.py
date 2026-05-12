@@ -154,10 +154,12 @@ class DeepFashionDataset(Dataset):
         elif isinstance(raw_descriptions, list):
             for entry in raw_descriptions:
                 if isinstance(entry, dict):
-                    item_id = str(entry.get("item_id", ""))
+                    item_id = str(entry.get("item_id") or entry.get("item") or "")
                     desc = entry.get("description") or entry.get("item_description") or ""
+                    if isinstance(desc, list):
+                        desc = " ".join(str(chunk).strip() for chunk in desc if chunk)
                     if item_id:
-                        normalized[item_id] = desc
+                        normalized[item_id] = str(desc)
 
         self.descriptions = normalized
     

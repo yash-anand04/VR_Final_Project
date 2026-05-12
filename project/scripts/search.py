@@ -10,7 +10,6 @@ from typing import List, Dict, Tuple, Optional
 
 import numpy as np
 from PIL import Image
-import torchvision.transforms as transforms
 
 from utils import setup_logger, CLIPEmbedder, YOLODetector, EmbeddingFusion, BLIP2ITMScorer
 from config import EMBEDDING_DIR, INDEX_DIR, MODEL_CONFIG, EMBEDDING_CONFIG, INDEX_CONFIG
@@ -28,6 +27,10 @@ class ProductSearchEngine:
         self.detector = YOLODetector(device=self.device)
         self.itm_scorer = None
         self.itm_model_name = MODEL_CONFIG["blip2"]["model_name"]
+        self.crop_conf_threshold = MODEL_CONFIG["yolo"].get(
+            "crop_conf_threshold",
+            MODEL_CONFIG["yolo"]["conf_threshold"],
+        )
         self.index, self.metadata, self.metric = self._load_index(partition)
 
     def _load_index(self, partition: str):
@@ -60,8 +63,15 @@ class ProductSearchEngine:
 
     def _prepare_query_image(self, image_path: str, use_crop: bool = True):
         if use_crop:
-            cropped, _ = self.detector.detect_and_crop(image_path, return_bbox=True, return_pil=True)
-            return cropped
+            cropped, _, detected, confidence = self.detector.detect_and_crop(
+                image_path,
+                return_bbox=True,
+                return_pil=True,
+                return_detection=True,
+                return_confidence=True,
+            )
+            if detected and confidence >= self.crop_conf_threshold:
+                return cropped
 
         from PIL import Image
         return Image.open(image_path).convert("RGB")
